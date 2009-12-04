@@ -1,0 +1,43 @@
+* requirements
+*** M1 
+**** run tests, cycle through errors, jumping to locations
+**** syntax highlighting
+****** drop in config
+**** continous build and test
+****** jump to errors
+**** integrated help
+****** ri
+**** macros
+****** record, play, save
+**** key mapping
+****** drop in file or record
+**** extend by dropping in ruby files
+**** undo
+** M2
+**** multiple windows
+**** remote development
+**** code coverage, profiling
+**** code snippets
+**** integrated google search
+
+windows workstation developing remotely on  linux
+
+* implied requirements
+*** stylizer pipeline (colors and highlights)
+defaults -> syntax -> code_coverage -> etc 
+*** run process and pipe output into buffer
+*** background processes
+*** rdoc awareness
+*** key mapping module
+*** ssh aware
+*** discover and join module
+so seperate ssh session can show views into same edit session
+* now
+*** repeat command (ctrl-u x)
+***** capture param x
+******* api to gather param
+***** capture command
+******* api to capture command
+******* make insert char into just another (default) command
+******* hook for capturing command just before execute
+********* use change_command instead of blocks for key binding
