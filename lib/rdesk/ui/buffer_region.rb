@@ -115,6 +115,9 @@ module Rdesk
         result
         
       end
+      def move(rows,columns)
+        BufferRegion.new(@start_pos.move(rows,columns) ,@end_pos.move(rows,columns))
+      end
       
     end
   end

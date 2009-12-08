@@ -9,30 +9,39 @@ module Rdesk
       end
       
       def log(message)
-        update(self,:log,message)
+        changed
+        notify_observers(self,:log,message)
       end
 
       def invalidate
-        update(self,:invalidate,nil)
+        changed
+        notify_observers(self,:invalidate,nil)
       end
 
       def push_change(change_command)
-        @change_stack ||= []
-        @change_stack.unshift(change_command)
+        @undo_stack ||= []
+        @undo_stack.unshift(change_command)
       end
       
       def checkpoint
-        @do_stack||=Rdesk::Ui::DoStack.new
-        @do_stack.push(@change_stack.clone)
-        @change_stack=[]
+        return unless @undo_stack
+        @change_stack||=Rdesk::Ui::DoStack.new
+        @change_stack.push(@undo_stack.clone)
+        @undo_stack=nil
       end
 
       def undo
-        @do_stack.undo
+        return unless @change_stack
+        @change_stack.undo
+        changed
+        notify_observers(self,:undo)
       end
 
       def redo
-        @do_stack.redo
+        return unless @change_stack
+        @change_stack.redo
+        changed
+        notify_observers(self,:redo)
       end
       
 

@@ -210,7 +210,7 @@ module Rdesk
       end
       #text will be inserted after pos
       def insert(pos,content)
-        content=content.split("\n") if content.is_a? String
+        content=rowify(content)
         
         enforce_valid(pos)
 
@@ -274,6 +274,19 @@ module Rdesk
         r
       end
 
+      def append(text)
+        new_rows=rowify(text)
+        new_rows.each{|r|add_row(@rows.length,r)}
+
+        invalidate
+      end
+
+      def rowify(text)
+
+        text=text.split("\n") if text.is_a? String
+        text
+      end
+      
       def edit_row(row_index)
         push_row(row_index)
         result=yield @rows[row_index]
@@ -287,7 +300,24 @@ module Rdesk
         return BufferRegion.new(0,0,0,0) if empty?
         BufferRegion.new(0,0,@rows.length-1,@rows.last.length)
       end
+      def row_length(row_index)
+        raise "invalid row: #{row_index}" if row_index<0 || row_index>=@rows.length
+        return @rows[row_index].length
+      end
 
+      def make_position_legal(position)
+        return if self.rows.length==0
+        row=[self.rows.length-1,position.row].min
+        row=[0 ,row].max
+
+        row_length=self.row_length row
+        column=[row_length,position.column].min
+        column=[0,column].max
+        position=BufferPosition.new(row,column)
+      end
+
+
+      
       def empty?
         @rows.empty?
       end
@@ -315,7 +345,6 @@ module Rdesk
       def row_exists?(row_index)
         return row_index>=0  && row_index<@rows.length
       end
-
 
 
       def modify_row(row_index,new_content)

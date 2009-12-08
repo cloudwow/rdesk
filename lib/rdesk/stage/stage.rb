@@ -88,7 +88,6 @@ module Rdesk
         Ncurses.stdscr.keypad(true)     # turn on keypad mode
 
         @color_pairs={}
-
         make_color_pair( 224, Ncurses::COLOR_BLACK,:orange)
         make_color_pair( Ncurses::COLOR_RED, Ncurses::COLOR_BLACK,:red)
         make_color_pair( Ncurses::COLOR_GREEN, Ncurses::COLOR_BLACK,:green)
@@ -99,7 +98,13 @@ module Rdesk
         make_color_pair( Ncurses::COLOR_BLACK, Ncurses::COLOR_WHITE,:black_on_white)
         make_color_pair( Ncurses::COLOR_BLUE, Ncurses::COLOR_BLACK,:blue)
         make_color_pair( Ncurses::COLOR_YELLOW, Ncurses::COLOR_BLACK,:yellow)
+        250.times do |i|
+          name="q_#{i}".to_sym
+          new_pair=make_color_pair( i+20, Ncurses::COLOR_BLACK,name)
 
+        end
+
+        
       end
 
       def make_color_pair(foreground,background,symbol)
@@ -107,6 +112,7 @@ module Rdesk
         Ncurses.init_pair(@next_color_pair_index, foreground,background);
         @color_pairs[symbol]=@next_color_pair_index
         @next_color_pair_index+=1
+        @next_color_pair_index-1
       end
 
       def create_window(buffer,x,y,w,h,options={})
@@ -143,8 +149,8 @@ module Rdesk
         curses_on
         begin
           main_buffer=create_buffer(:file_path => file_path)
-          @main=create_window(main_buffer,0,0,0,screen_height-4,:highlighter => @highlighter)
-          @cmd=create_window(create_buffer,0,screen_height-3,0,3)
+          @main=create_window(main_buffer,0,0,screen_width,screen_height-4,:highlighter => @highlighter)
+          @cmd=create_window(create_buffer,0,screen_height-3,screen_width,3,:auto_scroll=>true)
           @cmd.viewport.auto_scroll=true
           @modeline=create_window(create_buffer,0,screen_height-4,0,1)
 
@@ -158,6 +164,10 @@ module Rdesk
           bind_key_sequence([ESCAPE,79,68],""){|o| o[:window].viewport.move_chars(-1)  }
           bind_key_sequence([ESCAPE,79,66],""){|o| o[:window].viewport.move_lines(1)  }
           bind_key_sequence([ESCAPE,79,65],""){|o| o[:window].viewport.move_lines(-1)  }
+          bind_key_sequence([27,91,54],""){|o| o[:window].viewport.page_down}
+          bind_key_sequence([27,91,53],""){|o| o[:window].viewport.page_up}
+          bind_key_sequence([CTRL_a],""){|o| o[:window].viewport.move_to_beginning_of_line}
+          bind_key_sequence([CTRL_e],""){|o| o[:window].viewport.move_to_end_of_line}
           bind_key_sequence([CTRL_k],""){|o| clip delete_until_end_of_line(o) }
           bind_key_sequence([BACKSPACE],""){|o| backspace(o) }
           bind_key_sequence([CTRL_x,"x"],""){|o| delete_char(o)  }
@@ -172,6 +182,7 @@ module Rdesk
           bind_key_sequence(['c'],""){|o| @valid=false}
 
           bind_key_sequence([CTRL_x,'u'],""){|o| undo()}
+          bind_key_sequence([ESCAPE,'u'],""){|o| self.redo()}
           bind_key_sequence([CTRL_u],""){|o|
             count=capture_integer("count")
             command=capture_command
@@ -223,11 +234,29 @@ module Rdesk
 
           row_index+=1
         end
+        w.viewport.selection_rows.each do |row_region|
+          row_region=w.viewport.translate_to_viewport(row_region)
+          char_count=row_region.end_pos.column-row_region.start_pos.column
+
+          w.native_window.mvchgat(row_region.start_pos.row, row_region.start_pos.column, char_count, Ncurses::A_REVERSE,140 , nil) 
+        end
+
         vc=w.viewport.view_cursor
-        w.native_window.mvchgat(vc.row, vc.column, 1, Ncurses::A_REVERSE, 2, nil)
-        mark=w.viewport.mark
-        w.native_window.mvchgat(mark.row, mark.column, 1, Ncurses::A_REVERSE, 2, nil) if mark
+        
+        w.native_window.mvchgat(vc.row, vc.column, 1, Ncurses::A_REVERSE ,ncurses_color_index(:white) , nil) 
+
+        
+
+        # 10.times do |x|
+        #   16.times do |y|
+
+        #     w.native_window.mvchgat(y, x, 1, Ncurses::A_REVERSE ,x+y*10 , nil)
+
+        #   end
+        # end
+
         w.native_window.refresh
+
 
       end
       
@@ -272,14 +301,15 @@ module Rdesk
             return key_mapping.command
 
           else
-            help=key_mapping.get_descendant_command_nodes.join(" | ")
-            @cmd.viewport.text=help
+            unless @command_sequence.length==1 &&@command_sequence[0]==27
+              help key_mapping.get_descendant_command_nodes.join(" | ")
+            end
 
           end
         else
-          help=@command_sequence.join(" , ")+" is not bound"
+          help @command_sequence.join(" , ")+" is not bound"
           clear_command_sequence
-          @cmd.viewport.text=help
+
 
         end
         return nil
@@ -288,9 +318,9 @@ module Rdesk
       
       def handle_messages
         c=STDIN.getc
-        help=c.chr
+
         @last_key_pressed=c
-        @cmd.viewport.text=help
+
 
         if (c!=13 &&
             (c<32 || c>=128) ) || @mode==:command
@@ -329,7 +359,7 @@ module Rdesk
       
       def clear_command_sequence
         @mode=:insert
-        @cmd.viewport.text=""
+
         @command_sequence=[]
       end
 
@@ -350,8 +380,7 @@ module Rdesk
         
       end
       def log(message)
-        
-        @cmd.viewport.buffer.rows << message
+        @cmd.viewport.buffer.text= message
         
       end
       def black_one_yellow(window,str)
@@ -381,8 +410,14 @@ module Rdesk
         colored(window,:green,str)      
       end
 
+      def  ncurses_color(color)
+        Ncurses::COLOR_PAIR(ncurses_color_index(color))
+      end
+      def  ncurses_color_index(color)
+        @color_pairs[color]
+      end
       def colored(window,color,str,attributes=[])
-        window.native_window.attron(Ncurses::COLOR_PAIR(@color_pairs[color]))
+        window.native_window.attron(ncurses_color(color))
         attributes.each{|a|
           attribute=eval "Ncurses::A_"+a.to_s.upcase
           window.native_window.attron(attribute)
@@ -393,7 +428,7 @@ module Rdesk
           window.native_window.attroff(attribute)
         }
         
-        window.native_window.attron(Ncurses::COLOR_PAIR(@color_pairs[:white]))
+        window.native_window.attron(ncurses_color(:white))
         Ncurses.curs_set(0)
         window.native_window.refresh
 
@@ -418,6 +453,9 @@ module Rdesk
       def undo
         @main.viewport.buffer.undo
       end
+      def redo
+        @main.viewport.buffer.redo
+      end
       def checkpoint
         if @main && @main.viewport && @content_change
           @main.viewport.buffer.checkpoint
@@ -437,7 +475,11 @@ module Rdesk
         popup=Popup.new("#{name}:",@screen)
         return popup.get_string(0,30)
       end
+      def help(message)
+        @cmd.viewport.buffer.text= message
+        render_window(@cmd)
+      end
     end
-
+    
   end
 end

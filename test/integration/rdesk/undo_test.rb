@@ -16,18 +16,6 @@ module Rdesk
 
     end
 
-    def undo
-      @viewport.buffer.undo
-    end
-    def redo
-      @viewport.buffer.redo
-    end
-    
-    def checkpoint
-      if @content_change
-        @viewport.checkpoint
-      end
-    end
 
     def update(src,update_type=:invalidate,more=nil)
       case update_type
@@ -46,21 +34,21 @@ module Rdesk
     def test_2_deep
       @viewport.insert("hello")
       assert_equal("hello",@viewport.text)
-      checkpoint
+      @viewport.buffer.checkpoint
       @viewport.insert(" world")
 
       assert_equal("hello world",@viewport.text)
-      checkpoint
-      undo
+      @viewport.buffer.checkpoint
+      @viewport.buffer.undo
       assert_equal("hello",@viewport.text)
-      undo
+      @viewport.buffer.undo
       assert_equal("",@viewport.text)
 
     end
     def test_1_deep
       @viewport.insert("123")
-      checkpoint
-      undo
+       @viewport.buffer.checkpoint
+      @viewport.buffer.undo
       assert_equal("",@viewport.text)
 
     end
@@ -68,30 +56,30 @@ module Rdesk
     def test_2_deep_rows
       @viewport.insert("hello\n0123456\nwassup")
 
-      checkpoint
+      @viewport.buffer.checkpoint
       
       @viewport.insert("?")
-      checkpoint
+      @viewport.buffer.checkpoint
       @viewport.set_cursor(1,3)
       @viewport.insert("bingo\ndog")
-      checkpoint
+      @viewport.buffer.checkpoint
       @viewport.set_cursor(0,0)
       @viewport.delete_row
-      checkpoint
+      @viewport.buffer.checkpoint
       assert_equal( "012bingo\ndog3456\nwassup?" , @viewport.text)
-      undo
+      @viewport.buffer.undo
       assert_equal( "hello\n012bingo\ndog3456\nwassup?" , @viewport.text)
-      undo
+      @viewport.buffer.undo
 
       assert_equal( "hello\n0123456\nwassup?" , @viewport.text)
-      undo
+      @viewport.buffer.undo
       assert_equal( "hello\n0123456\nwassup" , @viewport.text)
 
-      self.redo
+      @viewport.buffer.redo
       assert_equal( "hello\n0123456\nwassup?" , @viewport.text)
-      self.redo
+      @viewport.buffer.redo
       assert_equal( "hello\n012bingo\ndog3456\nwassup?" , @viewport.text)
-      self.redo
+      @viewport.buffer.redo
       
       assert_equal( "012bingo\ndog3456\nwassup?" , @viewport.text)
       

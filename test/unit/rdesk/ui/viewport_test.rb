@@ -130,10 +130,10 @@ module Rdesk
         assert_position(1,4,@target.cursor)
         assert_position(1,4,@target.mark)
         assert_region(1,4,1,4,@target.region)
-        @target.set_cursor(2,8)
-        assert_position(2,8,@target.cursor)
+        @target.set_cursor(2,7)
+        assert_position(2,7,@target.cursor)
         assert_position(1,4,@target.mark)
-        assert_region(1,4,2,8,@target.region)
+        assert_region(1,4,2,7,@target.region)
         @target.set_cursor(0,1)
         assert_position(0,1,@target.cursor)
         assert_position(1,4,@target.mark)
@@ -143,6 +143,13 @@ module Rdesk
         assert_nil(@target.mark)
         assert_region(0,1,0,1,@target.region)
 
+      end
+
+      def test_make_cursor_legal
+        @target.set_cursor(1,50)
+        assert_position(1,5,@target.cursor)
+        @target.set_cursor(20,50)
+        assert_position(3,0,@target.cursor)
       end
     end
   end

@@ -29,7 +29,7 @@ module Rdesk
 
       def scroll(delta)
         @first_line_index+=delta
-        max_first_line_target=@buffer.rows.length- @height 
+        max_first_line_target=@buffer.rows.length- @height -1
         @first_line_index=[@first_line_index,max_first_line_target].min
         @first_line_index=0 if @first_line_index<0
         invalidate
@@ -37,16 +37,32 @@ module Rdesk
       end
 
       def scroll_view_to_cursor
+
+        if @cursor.row>@buffer.rows.length-@height
+          #the end of the view is past the end of the buffer
+          scroll(@cursor.row-@buffer.rows.length+@height)
+        end
+
         if @cursor.row<@first_line_index
           scroll(@cursor.row - @first_line_index)
           
         end
         
-        if @cursor.row > @first_line_index+@height
-          scroll( @cursor.row-@first_line_index-@height-1)
+        if @cursor.row > @first_line_index+@height-1
+          scroll( @cursor.row-@first_line_index-@height+1)
         end
         return self
       end
+      
+      def make_cursor_legal
+        @cursor=@buffer.make_position_legal(@cursor)
+        @mark=@buffer.make_position_legal(@mark) if @mark
+        scroll_view_to_cursor
+
+      end
+
+
+      
       def select(*args)
         if args[0].is_a?(BufferRegion)
           r=args.shift
@@ -76,7 +92,7 @@ module Rdesk
         new_value=args.shift_buffer_position.clone
 
         @cursor=new_value
-        scroll_view_to_cursor
+        make_cursor_legal
         self
       end
       
@@ -86,6 +102,19 @@ module Rdesk
         
         invalidate
 
+      end
+      def move_to_beginning_of_line
+        move_chars(-@cursor.column)
+      end
+      def move_to_end_of_line
+        move_chars(@buffer.row_length(@cursor.row)-  @cursor.column-1)
+      end
+      def page_up(count=1)
+        return page_down(-count)
+      end
+      def page_down(count=1)
+        scroll(count*@height)        
+        return self
       end
       def move_chars(char_count)
         
@@ -130,7 +159,26 @@ module Rdesk
       def region
         BufferRegion.new(@mark || @cursor, @cursor)
       end
-      
+      def view_region
+        result=BufferRegion.new(@mark || @cursor, @cursor)
+        translate_to_viewport(result)
+      end
+      def selection_rows
+        result=[]
+        r=self.region
+        (r.start_pos.row..r.end_pos.row).each do |row_index|
+          col_start=0
+          col_start=r.start_pos.column if row_index==r.start_pos.row
+          if row_index==r.end_pos.row
+            col_end=r.end_pos.column
+          else
+            col_end=@buffer.row_length(row_index)
+          end
+          result<< BufferRegion.new(row_index,col_start,row_index,col_end)
+        end
+        result
+      end
+
       def copy
         @buffer.copy(region)
       end
@@ -150,11 +198,8 @@ module Rdesk
       end
 
       def insert(text)
-        self.cursor=@buffer.insert(region,text)
-        #            log("old selection=#{@selection}")
         self.mark=nil
-        #            log("new selection=#{@selection}")
-        #            log("new text='#{@buffer.text}'")
+        self.cursor=@buffer.insert(region,text)
         invalidate
       end
 
@@ -173,16 +218,30 @@ module Rdesk
         arg.move(@first_line_index,0)
       end
       def translate_to_viewport(arg)
-        arg.move(@first_line_index,0)
+        arg.move(-@first_line_index,0)
       end
 
+      def last_visible_row
+        @first_line_index + @height
+      end
+      def last_visible_row=(value)
+        @first_line_index=[value - @height,0].max
+      end
+      
       def view_cursor
+        return nil if @cursor.row<@first_line_index || @cursor.row>self.last_visible_row
         translate_to_viewport(@cursor)
       end
+      def view_mark
+        return nil unless @mark
+        return nil if @mark.row<@first_line_index || @mark.row>self.last_visible_row
+        translate_to_viewport(@mark)
+      end
+      
       def view
         
         view_region=nil
-        view_end=@first_line_index +  @height
+        view_end=@first_line_index +  @height+1
         view_end=[view_end , @buffer.rows.length].min
         view_region=BufferRegion.new(@first_line_index,0,view_end,0)
 
@@ -211,12 +270,17 @@ module Rdesk
         r="Viewport( selection=#{region.to_s}, view from #{@first_line_index} to #{@first_line_index+@height} ):#{view.inspect}\n"
 
       end
-      def checkpoint
-        result=[ChangeCommand.new(self,@buffer.checkpoint.concat(super))]
 
+      #from buffer   
+      def update(src,update_type=:invalidate,more=nil)
+        if @auto_scroll# && self.last_visible_row <  @buffer.rows.length-1
+          #scroll( self.last_visible_row-@buffer.rows.length)
+          last_visible_row=@buffer.rows.length-1
+          @cursor=BufferPosition.new(last_visible_row,@buffer.row_length(last_visible_row))
+        end
+        make_cursor_legal
+        super
       end
-      
-
     end
   end
 end

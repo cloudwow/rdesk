@@ -8,6 +8,9 @@ module Rdesk
 
       
       def initialize(parent=nil,key_sequence=nil,command=nil)
+        @key_descriptions={
+          27 => "ESC"
+        }
         @children=[]
         key_sequence=KeyMapNode.arrayify(key_sequence)
         if parent==nil and (key_sequence==nil || key_sequence.length==0)
@@ -123,7 +126,7 @@ module Rdesk
       def to_s
         result="["
 
-        result << key_sequence.map{|k| k<255 ?  k.chr : k.to_s}.join(" ")
+        result << key_sequence.map{|k| @key_descriptions[k] ||(  k<255 ?  k.chr : k.to_s)}.join(" ")
         result << "]"
 
         result<< " " << @command.name if @command and @command.name

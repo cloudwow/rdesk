@@ -56,8 +56,8 @@ module Rdesk
       include BufferPositionImmutableMethods
       attr_reader :row,:column
       def initialize(row,column)
-        raise "row must be non-negative" if row <0
-        raise "column must be non-negative" if column <0
+#        raise "row must be non-negative" if row <0
+#        raise "column must be non-negative" if column <0
         @row=row
         @column=column
         

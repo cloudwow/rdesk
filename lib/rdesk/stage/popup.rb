@@ -31,14 +31,16 @@ module Rdesk
         # create a form  
         form = Ncurses::Form.new_form(fields)
 
+
+
         # post the form and refresh the screen
-        Ncurses::Form.post_form(form)
-        @screen.refresh()
+        form.post_form
 
-        Ncurses.mvprintw(4, @text.length, @text)
 
-        @screen.refresh()
+        @screen.mvprintw(4, @text.length, @text)
 
+
+        @screen.refresh
         # Loop through to get user requests
         while((ch = @screen.getch()) != 13) do
           case(ch)
